@@ -1,7 +1,8 @@
 #include "rip.h"
 #include <stdint.h>
 #include <stdlib.h>
-
+#include <arpa/inet.h>
+#include <stdio.h>
 /*
   在头文件 rip.h 中定义了如下的结构体：
   #define RIP_MAX_ENTRY 25
@@ -43,9 +44,69 @@
  * Metric 转换成小端序后是否在 [1,16] 的区间内，
  * Mask 的二进制是不是连续的 1 与连续的 0 组成等等。
  */
-bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
-  // TODO:
-  return false;
+bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output)
+{
+  // check ip packet length
+  uint16_t *totalLenPtr = (uint16_t *)(packet + 2);
+  uint16_t totalLen = ntohs(*totalLenPtr);
+  if (totalLen > len)
+    return false;
+  uint16_t ipHeaderLen = (packet[0] & 0xf) << 2;
+  uint16_t udpLen = ntohs(*(uint16_t*)(packet + ipHeaderLen + 4)); // skip src port, dst port
+  if (totalLen - udpLen != ipHeaderLen)
+    return false;
+  uint16_t numRipEntries = (udpLen - 8 - 4) / 20; // 8 bytes UDP header, 4 bytes RIP header
+  const uint8_t *ripPtr = packet + ipHeaderLen + 8;
+  uint8_t command = ripPtr[0];
+  uint8_t version = ripPtr[1];
+  uint8_t unused_0 = ripPtr[2];
+  uint8_t unused_1 = ripPtr[3];
+  // only support rip v2
+  // command - 1 request
+  //         - 2 response
+  if ((command == 1 || command == 2) && version == 2 && (unused_0 | unused_1) == 0 && numRipEntries <= RIP_MAX_ENTRY)
+  {
+    ripPtr += 4; // skip RIP header
+    output->command = command;
+    for (int i = 0; i < numRipEntries; ++i)
+    {
+      uint16_t addrFamily = *(uint16_t *)ripPtr;
+      uint16_t routerTag = *(uint16_t *)(ripPtr + 2);
+      uint32_t ipAddr = *(uint32_t *)(ripPtr + 4);
+      uint32_t subnetMask = *(uint32_t *)(ripPtr + 8);
+      uint32_t nextHop = *(uint32_t *)(ripPtr + 12);
+      uint32_t metric = *(uint32_t *)(ripPtr + 16);
+      // validate metric
+      uint32_t _metric = ntohl(metric);
+      if (_metric == 0 || _metric > 16)
+        return false;
+      // validate subnet mask
+      bool hasOne = false;
+      uint32_t _mask = ntohl(subnetMask);
+      for (uint8_t i = 0; i < 32; ++i)
+      {
+        bool cur = _mask & 0x1;
+        if (!hasOne && cur)
+          hasOne = true;
+        if (hasOne && !cur)
+          return false; // invalid mask
+        _mask >>= 1;
+      }
+      // check AF identifier
+      uint16_t _addrFamily = ntohs(addrFamily);
+      bool valid = ((command == 1 && _addrFamily == 0) || (command == 2 && _addrFamily == 2)) && !routerTag;
+      if (!valid)
+        return false;
+      ripPtr += 20;
+      output->entries[i].addr = ipAddr;
+      output->entries[i].mask = subnetMask;
+      output->entries[i].metric = metric;
+      output->entries[i].nexthop = nextHop;
+    }
+    output->numEntries = numRipEntries;
+  }
+  else
+    return false;
 }
 
 /**
@@ -58,7 +119,27 @@ bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
  * 你写入 buffer 的数据长度和返回值都应该是四个字节的 RIP 头，加上每项 20 字节。
  * 需要注意一些没有保存在 RipPacket 结构体内的数据的填写。
  */
-uint32_t assemble(const RipPacket *rip, uint8_t *buffer) {
-  // TODO:
-  return 0;
+uint32_t assemble(const RipPacket *rip, uint8_t *buffer)
+{
+  if(rip == nullptr)
+    return 0;
+  *buffer++ = rip->command;
+  *buffer++ = 2;
+  *buffer++ = 0;
+  *buffer++ = 0;
+  for(uint32_t i = 0; i < rip->numEntries; ++i) {
+    *((uint16_t*)buffer) = htons(rip->command == 2 ? 2 : 0);  // AFI
+    buffer += 2;
+    *buffer++ = 0;
+    *buffer++ = 0; // Router TAG
+    *((uint32_t*)buffer) = rip->entries[i].addr;
+    buffer += 4;
+    *((uint32_t*)buffer) = rip->entries[i].mask;
+    buffer += 4;
+    *((uint32_t*)buffer) = rip->entries[i].nexthop;
+    buffer += 4;
+    *((uint32_t*)buffer) = rip->entries[i].metric;
+    buffer += 4;
+  }
+  return 20 * rip->numEntries + 4;
 }

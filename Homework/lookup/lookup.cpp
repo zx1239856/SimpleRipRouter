@@ -1,6 +1,8 @@
 #include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
+#include <unordered_map>
 
 /*
   RoutingTable Entry 的定义如下：
@@ -18,6 +20,15 @@
   你可以在全局变量中把路由表以一定的数据结构格式保存下来。
 */
 
+typedef struct {
+    uint32_t len;
+    uint32_t if_index;
+    uint32_t nexthop;
+} SimpleEntry;
+
+std::unordered_map<uint32_t, SimpleEntry> table_entries;
+
+
 /**
  * @brief 插入/删除一条路由表表项
  * @param insert 如果要插入则为 true ，要删除则为 false
@@ -26,8 +37,18 @@
  * 插入时如果已经存在一条 addr 和 len 都相同的表项，则替换掉原有的。
  * 删除时按照 addr 和 len 匹配。
  */
-void update(bool insert, RoutingTableEntry entry) {
-  // TODO:
+void update(bool isInsert, RoutingTableEntry entry)
+{
+  uint32_t addr = ntohl(entry.addr) & (0xffffffff << (32 - entry.len));
+  if(isInsert) {
+    table_entries[addr].if_index = entry.if_index;
+    table_entries[addr].nexthop = entry.nexthop;
+    table_entries[addr].len = entry.len;
+  } else {
+    auto it = table_entries.find(addr);
+    if(it != table_entries.end())
+      table_entries.erase(it);
+  }
 }
 
 /**
@@ -37,8 +58,18 @@ void update(bool insert, RoutingTableEntry entry) {
  * @param if_index 如果查询到目标，把表项的 if_index 写入
  * @return 查到则返回 true ，没查到则返回 false
  */
-bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
-  // TODO:
+bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index)
+{
+  addr = ntohl(addr);
+  for(uint32_t i = 32; i > 0; --i) {
+    uint32_t _addr = addr & (0xffffffff << (32 - i));
+    auto it = table_entries.find(_addr);
+    if(it != table_entries.end() && it->second.len == i) {
+      *nexthop = it->second.nexthop;
+      *if_index = it->second.if_index;
+      return true;
+    }
+  }
   *nexthop = 0;
   *if_index = 0;
   return false;
