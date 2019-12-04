@@ -22,7 +22,7 @@ uint8_t icmp_buffer[2048];
 // 192.168.2.2 for test
 // 192.168.4.1 for test
 in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0102000a, 0x0103000a};
-const in_addr_t rip_group_addr = {0x090000e0}; // 224.0.0.9
+constexpr in_addr_t rip_group_addr = {0x090000e0}; // 224.0.0.9
 
 void onInterrupt(int _)
 {
