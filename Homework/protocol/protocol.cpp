@@ -160,7 +160,7 @@ void fillRipPacket(RipPacket *rip, uint32_t out_if_index) {
     uint32_t next_hop = htonl(entry.second.nexthop);
     rip->entries[idx].addr = htonl(entry.second.addr & mask);
     rip->entries[idx].mask = htonl(mask);
-    rip->entries[idx].metric = htonl(need_poison ? 16 : std::min(entry.second.metric + 1, 16u));
+    rip->entries[idx].metric = htonl(need_poison ? 16 : entry.second.metric);
     rip->entries[idx].nexthop = 0; // 0 means curr router
     if(idx++ == RIP_MAX_ENTRY)
       break;

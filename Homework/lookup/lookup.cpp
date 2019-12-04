@@ -149,21 +149,21 @@ void addRipRoute(uint32_t addr, uint32_t prefix_len, uint32_t next_hop, uint32_t
 
 void printRoutingTable()
 {
-  printf("====================Routing Table====================\n");
+  printf("==============================Routing Table==============================\n");
   for (const auto &entry : table_entries)
   {
     if (entry.second.nexthop)
     {
-      printf("%d.%d.%d.%d/%d\t\tvia %d.%d.%d.%d\t\tdev eth%d\tmetric %d\n",
+      printf("%d.%d.%d.%d/%d\tvia %d.%d.%d.%d\t\tdev eth%d\tmetric %d\n",
              EXTRACT_ADDR(entry.second.addr), entry.second.len, EXTRACT_ADDR(entry.second.nexthop), entry.second.if_index, entry.second.metric);
     }
     else
     {
-      printf("%d.%d.%d.%d/%d\t\tvia direct\t\tdev eth%d\tmetric %d\n",
+       printf("%d.%d.%d.%d/%d\t\tvia direct\t\tdev eth%d\tmetric %d\n",
              EXTRACT_ADDR(entry.second.addr), entry.second.len, entry.second.if_index, entry.second.metric);
     }
   }
-  printf("=====================================================\n");
+  printf("=========================================================================\n");
 }
 
 #undef EXTRACT_ADDR
@@ -179,7 +179,7 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
       entry.nexthop = src; // means self
     uint32_t prefix_len = MASK_TO_PREFIX_LEN(entry.mask);
     uint32_t addr = entry.addr;
-    uint32_t metric = ntohl(entry.metric);
+    uint32_t metric = ntohl(entry.metric) + 1;
     uint32_t next_hop = entry.nexthop;
     auto old_entry = queryExact(addr, prefix_len);
     if (old_entry == nullptr)

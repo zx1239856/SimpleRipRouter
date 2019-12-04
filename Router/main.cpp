@@ -53,7 +53,8 @@ int main(int argc, char *argv[])
         .addr = addrs[i],
         .len = 24,     // small endian
         .if_index = i, // small endian
-        .nexthop = 0};
+        .nexthop = 0,
+	.metric = 1};
     update(true, entry);
 
     macaddr_t dst_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09};
@@ -213,7 +214,7 @@ int main(int argc, char *argv[])
             0x00, 0x00, 0x00, 0x00};
         memcpy(icmp_buffer, new_buffer, sizeof(uint8_t) * 28);
         uint8_t headerLen = (packet[0] & 0xf) << 2;
-        res = std::max(headerLen + 8, res);
+        res = std::min(headerLen + 8, res);
         memcpy(icmp_buffer + 28, output, sizeof(uint8_t) * res);
         uint16_t new_len = 28 + res;
         uint16_t new_len_ = htons(new_len);
