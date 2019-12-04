@@ -37,7 +37,7 @@ void update(bool isInsert, RoutingTableEntry entry)
   uint32_t addr = ntohl(entry.addr) & (0xffffffff << (32 - entry.len));
   if (isInsert)
   {
-    table_entries[addr] = {ntohl(entry.addr), entry.len, entry.if_index, ntohl(entry.nexthop), entry.metric};
+    table_entries[addr] = {addr, entry.len, entry.if_index, ntohl(entry.nexthop), entry.metric};
   }
   else
   {
@@ -64,7 +64,7 @@ bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index)
     auto it = table_entries.find(_addr);
     if (it != table_entries.end() && it->second.len == i)
     {
-      *nexthop = it->second.nexthop;
+      *nexthop = htonl(it->second.nexthop);
       *if_index = it->second.if_index;
       return true;
     }

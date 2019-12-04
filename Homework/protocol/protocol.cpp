@@ -109,6 +109,7 @@ bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output)
       output->entries[i].nexthop = nextHop;
     }
     output->numEntries = numRipEntries;
+    return true;
   }
   else
     return false;
