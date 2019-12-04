@@ -42,6 +42,8 @@ extern "C" {
  */
 int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]);
 
+void HAL_Finalize(in_addr_t if_addrs[N_IFACE_ON_BOARD]);
+
 /**
  * @brief 获取从启动到当前时刻的毫秒数
  *

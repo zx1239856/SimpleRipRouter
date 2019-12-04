@@ -1,21 +1,7 @@
+#include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
-
-// from problem 1
-bool validateIPChecksum(uint8_t *packet, size_t len) {
-  uint32_t checkSum = 0;
-  uint16_t* u16Packet = (uint16_t*) packet;
-  uint8_t headerLen = ((ntohs(u16Packet[0]) & 0x0f00) >> 8) << 1;
-  uint16_t checkSumInPac = ntohs(u16Packet[5]);
-  while(headerLen--) {
-    checkSum += ntohs(*u16Packet++);
-  }
-  checkSum -= checkSumInPac;
-  checkSum = (checkSum >> 16) + (checkSum & 0xffff);
-  checkSum += (checkSum >> 16);
-  return (uint16_t)(~checkSum) == checkSumInPac;
-}
 
 /**
  * @brief 进行转发时所需的 IP 头的更新：
@@ -39,4 +25,19 @@ bool forward(uint8_t *packet, size_t len) {
     *ckPtr = htons(~((uint16_t)checkSum));
     return true;
   } else return false;
+}
+
+bool directForward(uint8_t *packet, size_t len) {
+    uint16_t oldTtl = packet[8] << 8;
+    packet[8] -= 1;
+    if(packet[8] == 0)
+      return false;
+    uint16_t* ckPtr = ((uint16_t*)packet) + 5;
+    // RFC 1624 incremental update
+    uint32_t checkSum = ~ntohs(*ckPtr) & 0xffff;
+    checkSum += (~oldTtl & 0xffff) + (packet[8] << 8);
+    checkSum = (checkSum >> 16) + (checkSum & 0xffff);
+    checkSum += (checkSum >> 16);
+    *ckPtr = htons(~((uint16_t)checkSum));
+    return true;
 }

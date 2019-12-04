@@ -112,6 +112,18 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
   return 0;
 }
 
+void HAL_Finalize(in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
+  for (int i = 0; i < N_IFACE_ON_BOARD; i++) {
+    if (pcap_out_handles[i]) {
+      HAL_LeaveIGMPGroup(i, if_addrs[i]);
+      if (debugEnabled) {
+        fprintf(stderr, "HAL_Finalize: Leaving RIP multicast group 224.0.0.9 for %s\n",
+                interfaces[i]);
+      }
+    }
+  }
+}
+
 uint64_t HAL_GetTicks() {
   struct timespec tp = {0};
   clock_gettime(CLOCK_MONOTONIC, &tp);

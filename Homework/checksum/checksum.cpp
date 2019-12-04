@@ -1,6 +1,8 @@
+#include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+
 /**
  * @brief 进行 IP 头的校验和的验证
  * @param packet 完整的 IP 头和载荷
@@ -19,4 +21,14 @@ bool validateIPChecksum(uint8_t *packet, size_t len) {
   checkSum = (checkSum >> 16) + (checkSum & 0xffff);
   checkSum += (checkSum >> 16);
   return (uint16_t)(~checkSum) == checkSumInPac;
+}
+
+uint16_t getChecksum(uint8_t *buffer, size_t len) {
+    uint32_t ip_chksum = 0;
+    len >>= 1;
+    for (int i = 0; i < len; i++) {
+      ip_chksum += ((uint16_t *)buffer)[i];
+    }
+    ip_chksum = (ip_chksum >> 16) + (ip_chksum & 0xffff);
+    return (uint16_t)(~ip_chksum);
 }

@@ -1,5 +1,10 @@
+#pragma once
 #include <stdint.h>
 #define RIP_MAX_ENTRY 25
+#define RIP_REQUEST    	1
+#define RIP_RESPONSE   	2
+#define RIP_INFINITY  16
+
 typedef struct {
   // all fields are big endian
   // we don't store 'family', as it is always 2(response) and 0(request)

@@ -1,8 +1,10 @@
 #include "rip.h"
+#include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <unordered_map>
 /*
   在头文件 rip.h 中定义了如下的结构体：
   #define RIP_MAX_ENTRY 25
@@ -30,6 +32,7 @@
   需要注意这里的地址都是用 **大端序** 存储的，1.2.3.4 对应 0x04030201 。
 */
 
+extern std::unordered_map<uint32_t, RoutingTableEntry> table_entries;
 /**
  * @brief 从接受到的 IP 包解析出 Rip 协议的数据
  * @param packet 接受到的 IP 包
@@ -49,7 +52,9 @@ bool disassemble(const uint8_t *packet, uint32_t len, RipPacket *output)
   // check ip packet length
   uint16_t *totalLenPtr = (uint16_t *)(packet + 2);
   uint16_t totalLen = ntohs(*totalLenPtr);
-  if (totalLen > len)
+  if (totalLen > len || totalLen < 32) // at least 20 bytes + 8 bytes + 4 bytes
+    return false;
+  if (packet[9] != 0x11)  // is UDP protocol or not
     return false;
   uint16_t ipHeaderLen = (packet[0] & 0xf) << 2;
   uint16_t udpLen = ntohs(*(uint16_t*)(packet + ipHeaderLen + 4)); // skip src port, dst port
@@ -142,4 +147,23 @@ uint32_t assemble(const RipPacket *rip, uint8_t *buffer)
     buffer += 4;
   }
   return 20 * rip->numEntries + 4;
+}
+
+void fillRipPacket(RipPacket *rip, uint32_t out_if_index) {
+  if(rip == nullptr)
+    return;
+  int idx = 0;
+  for(const auto& entry : table_entries) {
+    bool need_poison = out_if_index == entry.second.if_index;
+    uint32_t mask = PREFIX_LEN_TO_MASK(entry.second.len);
+    uint32_t next_hop = htonl(entry.second.nexthop);
+    rip->entries[idx].addr = htonl(entry.second.addr & mask);
+    rip->entries[idx].mask = htonl(mask);
+    rip->entries[idx].metric = htonl(need_poison ? 16 : std::min(entry.second.metric + 1, 16u));
+    rip->entries[idx].nexthop = 0; // 0 means curr router
+    if(idx++ == RIP_MAX_ENTRY)
+      break;
+  }
+  rip->command = RIP_RESPONSE;
+  rip->numEntries = idx;
 }
