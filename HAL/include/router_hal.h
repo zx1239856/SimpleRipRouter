@@ -5,11 +5,15 @@
 #include <stdlib.h>
 #ifdef ROUTER_BACKEND_LINUX
 #include <arpa/inet.h>
+const int IP_OFFSET = 14;
 #elif defined ROUTER_BACKEND_MACOS
 #include <arpa/inet.h>
+const int IP_OFFSET = 14;
 #elif defined ROUTER_BACKEND_STDIO
 #include <arpa/inet.h>
+const int IP_OFFSET = 18;
 #elif defined ROUTER_BACKEND_XILINX
+const int IP_OFFSET = 14 + 4;
 typedef uint32_t in_addr_t;
 #endif
 // in_addr_t 是以大端序存储的，意味着 1.2.3.4 对应 0x04030201
@@ -92,7 +96,7 @@ int HAL_GetInterfaceMacAddress(int if_index, macaddr_t o_mac);
  */
 int HAL_ReceiveIPPacket(int if_index_mask, uint8_t *buffer, size_t length,
                         macaddr_t src_mac, macaddr_t dst_mac, int64_t timeout,
-                        int *if_index);
+                        int *if_index, bool preserve_ethernet_header = false);
 
 /**
  * @brief 发送一个 IP 报文，它的源 MAC 地址就是对应接口的 MAC 地址
@@ -105,6 +109,11 @@ int HAL_ReceiveIPPacket(int if_index_mask, uint8_t *buffer, size_t length,
  */
 int HAL_SendIPPacket(int if_index, uint8_t *buffer, size_t length,
                      macaddr_t dst_mac);
+
+#ifdef ROUTER_BACKEND_LINUX
+int HAL_SendEthernetFrame(int if_index, uint8_t *buffer, size_t length,
+                          macaddr_t dst_mac);
+#endif
 
 #ifdef __cplusplus
 }

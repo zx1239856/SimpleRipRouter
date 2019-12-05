@@ -8,8 +8,6 @@
 #include <time.h>
 #include <utility>
 
-const int IP_OFFSET = 18; // 6 + 6 + 4 + 2
-
 bool inited = false;
 bool outputInited = false;
 int debugEnabled = 0;

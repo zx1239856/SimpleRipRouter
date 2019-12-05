@@ -18,7 +18,6 @@
 #include <time.h>
 #include <utility>
 
-const int IP_OFFSET = 14;
 
 const char *interfaces[N_IFACE_ON_BOARD] = {
     "en0",

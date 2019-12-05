@@ -9,7 +9,6 @@
 
 extern void update(bool insert, RoutingTableEntry entry);
 extern bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
-extern bool forward(uint8_t *packet, size_t len);
 
 uint8_t packet[2048];
 uint8_t output[2048];
@@ -87,7 +86,7 @@ int main(int argc, char *argv[])
     macaddr_t dst_mac;
     int if_index;
     res = HAL_ReceiveIPPacket(mask, packet, sizeof(packet), src_mac,
-                              dst_mac, 1000, &if_index);
+                              dst_mac, 1000, &if_index, true);
     if (res == HAL_ERR_EOF)
     {
       break;
@@ -107,13 +106,16 @@ int main(int argc, char *argv[])
       continue;
     }
 
-    if (!validateIPChecksum(packet, res))
+    res -= IP_OFFSET;
+    auto ip_packet = packet + IP_OFFSET;
+
+    if (!validateIPChecksum(ip_packet, res))
     {
       printf("Invalid IP Checksum, ignore\n");
       continue;
     }
     in_addr_t src_addr, dst_addr;
-    extractAddrFromPacket(packet, &src_addr, &dst_addr);
+    extractAddrFromPacket(ip_packet, &src_addr, &dst_addr);
 
     bool dst_is_me = false;
     for (int i = 0; i < N_IFACE_ON_BOARD; i++)
@@ -130,7 +132,7 @@ int main(int argc, char *argv[])
     if (dst_is_me || dst_is_rip_group)
     {
       RipPacket rip;
-      if (disassemble(packet, res, &rip))
+      if (disassemble(ip_packet, res, &rip))
       {
         // disassemble success
         if (rip.command == RIP_REQUEST)
@@ -148,22 +150,22 @@ int main(int argc, char *argv[])
                  src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
           handleRipPacket(&rip, src_addr);
         }
-      } else if(dst_is_me && packet[9] == 0x01 && packet[20] == 0x08) {
+      } else if(dst_is_me && ip_packet[9] == 0x01 && ip_packet[20] == 0x08) {
         // ICMP Ping request
-        packet[20] = 0x00; // ICMP ping reply
-        memset(packet + 22, 0, sizeof(uint16_t));
-        uint16_t checksum = getChecksum(packet + 20, res - 20);
-        memcpy(packet + 22, &checksum, sizeof(uint16_t));
+        ip_packet[20] = 0x00; // ICMP ping reply
+        memset(ip_packet + 22, 0, sizeof(uint16_t));
+        uint16_t checksum = getChecksum(ip_packet + 20, res - 20);
+        memcpy(ip_packet + 22, &checksum, sizeof(uint16_t));
         // ICMP checksum
-        memcpy(packet + 12, &dst_addr, sizeof(uint32_t));
-        memcpy(packet + 16, &src_addr, sizeof(uint32_t));
+        memcpy(ip_packet + 12, &dst_addr, sizeof(uint32_t));
+        memcpy(ip_packet + 16, &src_addr, sizeof(uint32_t));
         // IP Header
-        memset(packet + 4, 0, sizeof(uint32_t));
-        packet[8] = 0x40;
-        memset(packet + 10, 0, sizeof(uint16_t));
-        uint16_t headerCheckSum = getChecksum(packet, 20);
-        memcpy(packet + 10, &headerCheckSum, sizeof(uint16_t));
-        HAL_SendIPPacket(if_index, packet, res, src_mac);
+        memset(ip_packet + 4, 0, sizeof(uint32_t));
+        ip_packet[8] = 0x40;
+        memset(ip_packet + 10, 0, sizeof(uint16_t));
+        uint16_t headerCheckSum = getChecksum(ip_packet, 20);
+        memcpy(ip_packet + 10, &headerCheckSum, sizeof(uint16_t));
+        HAL_SendEthernetFrame(if_index, packet, res, src_mac);
         printf("[Info] Reply to ICMP ping from %d.%d.%d.%d\n",
           src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
       }
@@ -184,12 +186,11 @@ int main(int argc, char *argv[])
         }
         if (HAL_ArpGetMacAddress(dest_if, nexthop, dest_mac) == 0)
         {
-          // found
-          memcpy(output, packet, res);
           // update ttl and checksum
-          if (directForward(output, res))
+          if (directForward(ip_packet, res))
           {
-            HAL_SendIPPacket(dest_if, output, res, dest_mac);
+            // zero copy
+            HAL_SendEthernetFrame(dest_if, packet, res, dest_mac);
           }
           else
           {
@@ -201,7 +202,7 @@ int main(int argc, char *argv[])
                 0x0b, 0x00, 0x00, 0x00, // icmp
                 0x00, 0x00, 0x00, 0x00};
             memcpy(icmp_buffer, new_buffer, sizeof(uint8_t) * 28);
-            uint8_t headerLen = (packet[0] & 0xf) << 2;
+            uint8_t headerLen = (ip_packet[0] & 0xf) << 2;
             res = std::min(headerLen + 8, res);
             memcpy(icmp_buffer + 28, output, sizeof(uint8_t) * res);
             uint16_t new_len = 28 + res;
@@ -231,7 +232,7 @@ int main(int argc, char *argv[])
             0x03, 0x00, 0x00, 0x00, // icmp
             0x00, 0x00, 0x00, 0x00};
         memcpy(icmp_buffer, new_buffer, sizeof(uint8_t) * 28);
-        uint8_t headerLen = (packet[0] & 0xf) << 2;
+        uint8_t headerLen = (ip_packet[0] & 0xf) << 2;
         res = std::min(headerLen + 8, res);
         memcpy(icmp_buffer + 28, output, sizeof(uint8_t) * res);
         uint16_t new_len = 28 + res;

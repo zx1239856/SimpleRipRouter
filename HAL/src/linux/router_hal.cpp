@@ -7,7 +7,7 @@
 #include <map>
 #include <net/if.h>
 #include <net/if_arp.h>
-#include <pcap.h>
+#include <pcap/pcap.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -21,8 +21,6 @@
 #else
 #include "platform/testing.h"
 #endif
-
-const int IP_OFFSET = 14;
 
 bool inited = false;
 int debugEnabled = 0;
@@ -82,13 +80,15 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
   // init pcap handles
   char error_buffer[PCAP_ERRBUF_SIZE];
   for (int i = 0; i < N_IFACE_ON_BOARD; i++) {
-    pcap_in_handles[i] = pcap_create(interfaces[i], error_buffer);
-    pcap_set_immediate_mode(pcap_in_handles[i], 1);
-    pcap_set_promisc(pcap_in_handles[i], 1);
-    pcap_set_buffer_size(pcap_in_handles[i], BUFSIZ);
-    pcap_set_timeout(pcap_in_handles[i], 1);
-    if (pcap_activate(pcap_in_handles[i]) >= 0) {
-      pcap_setnonblock(pcap_in_handles[i], 1, error_buffer);
+    auto in_handle = pcap_create(interfaces[i], error_buffer);
+    pcap_set_immediate_mode(in_handle, 1);
+    pcap_set_promisc(in_handle, 1);
+    pcap_set_buffer_size(in_handle, BUFSIZ);
+    pcap_set_timeout(in_handle, 1);
+    pcap_setdirection(in_handle, PCAP_D_IN);
+    pcap_setnonblock(in_handle, 1, error_buffer);
+    if (pcap_activate(in_handle) >= 0) {
+      pcap_in_handles[i] = in_handle;
       if (debugEnabled) {
         fprintf(stderr, "HAL_Init: pcap capture enabled for %s\n",
                 interfaces[i]);
@@ -106,8 +106,10 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
     pcap_set_promisc(out_handle, 1);
     pcap_set_buffer_size(out_handle, BUFSIZ);
     pcap_set_timeout(out_handle, 0);
-    if(pcap_activate(out_handle) >= 0)
+    pcap_setnonblock(out_handle, 1, error_buffer);
+    if(pcap_activate(out_handle) >= 0) {
       pcap_out_handles[i] = out_handle;
+    }
   }
 
   memcpy(interface_addrs, if_addrs, sizeof(interface_addrs));
@@ -224,7 +226,7 @@ int HAL_GetInterfaceMacAddress(int if_index, macaddr_t o_mac) {
 
 int HAL_ReceiveIPPacket(int if_index_mask, uint8_t *buffer, size_t length,
                         macaddr_t src_mac, macaddr_t dst_mac, int64_t timeout,
-                        int *if_index) {
+                        int *if_index, bool preserve_ethernet_header) {
   if (!inited) {
     return HAL_ERR_CALLED_BEFORE_INIT;
   }
@@ -270,9 +272,10 @@ int HAL_ReceiveIPPacket(int if_index_mask, uint8_t *buffer, size_t length,
       // IPv4
       // TODO: what if len != caplen
       // Beware: might be larger than MTU because of offloading
-      size_t ip_len = hdr.caplen - IP_OFFSET;
+      size_t offset = preserve_ethernet_header ? 0 : IP_OFFSET;
+      size_t ip_len = hdr.caplen - offset;
       size_t real_length = length > ip_len ? ip_len : length;
-      memcpy(buffer, &packet[IP_OFFSET], real_length);
+      memcpy(buffer, &packet[offset], real_length);
       memcpy(dst_mac, &packet[0], sizeof(macaddr_t));
       memcpy(src_mac, &packet[6], sizeof(macaddr_t));
       *if_index = current_port;
@@ -369,4 +372,33 @@ int HAL_SendIPPacket(int if_index, uint8_t *buffer, size_t length,
     return HAL_ERR_UNKNOWN;
   }
 }
+
+int HAL_SendEthernetFrame(int if_index, uint8_t *buffer, size_t length,
+                          macaddr_t dst_mac) {
+  if (!inited) {
+    return HAL_ERR_CALLED_BEFORE_INIT;
+  }
+  if (if_index >= N_IFACE_ON_BOARD || if_index < 0) {
+    return HAL_ERR_INVALID_PARAMETER;
+  }
+  if (!pcap_out_handles[if_index]) {
+    return HAL_ERR_IFACE_NOT_EXIST;
+  }
+  memcpy(buffer, dst_mac, sizeof(macaddr_t));
+  memcpy(&buffer[6], interface_mac[if_index], sizeof(macaddr_t));
+  // IPv4
+  buffer[12] = 0x08;
+  buffer[13] = 0x00;
+  if (pcap_inject(pcap_out_handles[if_index], buffer, length + IP_OFFSET) >=
+      0) {
+    return 0;
+  } else {
+    if (debugEnabled) {
+      fprintf(stderr, "HAL_SendEthernetFrame: pcap_inject failed with %s\n",
+              pcap_geterr(pcap_out_handles[if_index]));
+    }
+    return HAL_ERR_UNKNOWN;
+  }
+}
+
 }

@@ -5,8 +5,6 @@
 #include "xspi.h"
 #include "xtmrctr.h"
 #include <stdio.h>
-
-const int IP_OFFSET = 14 + 4;
 const int ARP_LENGTH = 28;
 
 int inited = 0;
