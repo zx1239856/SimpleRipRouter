@@ -1,5 +1,5 @@
-#include "router.h"
 #include <string.h>
+#include "router.h"
 
 RipPacket REQUEST_RIP_PACKET = {
   1, RIP_REQUEST, {0, 0, 0, 0x10000000}

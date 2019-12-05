@@ -1,8 +1,13 @@
 #pragma once
 #include <stdint.h>
-#include <stddef.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
 #include "router_hal.h"
 #include "rip.h"
+#ifdef IGNORE_PRINTF
+#define printf(fmt, ...) (0)
+#endif
+
 typedef struct {
     uint32_t addr;
     uint32_t len;

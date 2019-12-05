@@ -1,7 +1,4 @@
 #include "router.h"
-#include <stdint.h>
-#include <stdlib.h>
-#include <arpa/inet.h>
 
 /**
  * @brief 进行 IP 头的校验和的验证

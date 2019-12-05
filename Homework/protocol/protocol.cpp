@@ -1,10 +1,6 @@
+#include <unordered_map>
 #include "rip.h"
 #include "router.h"
-#include <stdint.h>
-#include <stdlib.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <unordered_map>
 /*
   在头文件 rip.h 中定义了如下的结构体：
   #define RIP_MAX_ENTRY 25

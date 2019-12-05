@@ -32,6 +32,8 @@ macaddr_t interface_mac[N_IFACE_ON_BOARD] = {0};
 pcap_t *pcap_in_handles[N_IFACE_ON_BOARD];
 pcap_t *pcap_out_handles[N_IFACE_ON_BOARD];
 
+uint8_t tx_buffer[N_IFACE_ON_BOARD][BUFSIZ];
+
 std::map<std::pair<in_addr_t, int>, macaddr_t> arp_table;
 std::map<std::pair<in_addr_t, int>, uint64_t> arp_timer;
 
@@ -41,6 +43,10 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
     return 0;
   }
   debugEnabled = debug;
+
+  if(debugEnabled) {
+    fprintf(stderr, "HAL_Init: %s\n", pcap_lib_version());
+  }
 
   // find matching interfaces and get their MAC address
   struct ifaddrs *ifaddr, *ifa;
@@ -72,13 +78,16 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
     }
   }
   freeifaddrs(ifaddr);
-
+ 
   // init pcap handles
   char error_buffer[PCAP_ERRBUF_SIZE];
   for (int i = 0; i < N_IFACE_ON_BOARD; i++) {
-    pcap_in_handles[i] =
-        pcap_open_live(interfaces[i], BUFSIZ, 1, 1, error_buffer);
-    if (pcap_in_handles[i]) {
+    pcap_in_handles[i] = pcap_create(interfaces[i], error_buffer);
+    pcap_set_immediate_mode(pcap_in_handles[i], 1);
+    pcap_set_promisc(pcap_in_handles[i], 1);
+    pcap_set_buffer_size(pcap_in_handles[i], BUFSIZ);
+    pcap_set_timeout(pcap_in_handles[i], 1);
+    if (pcap_activate(pcap_in_handles[i]) >= 0) {
       pcap_setnonblock(pcap_in_handles[i], 1, error_buffer);
       if (debugEnabled) {
         fprintf(stderr, "HAL_Init: pcap capture enabled for %s\n",
@@ -92,8 +101,13 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
                 interfaces[i]);
       }
     }
-    pcap_out_handles[i] =
-        pcap_open_live(interfaces[i], BUFSIZ, 1, 0, error_buffer);
+    auto out_handle = pcap_create(interfaces[i], error_buffer);
+    pcap_set_immediate_mode(out_handle, 1);
+    pcap_set_promisc(out_handle, 1);
+    pcap_set_buffer_size(out_handle, BUFSIZ);
+    pcap_set_timeout(out_handle, 0);
+    if(pcap_activate(out_handle) >= 0)
+      pcap_out_handles[i] = out_handle;
   }
 
   memcpy(interface_addrs, if_addrs, sizeof(interface_addrs));
@@ -337,7 +351,7 @@ int HAL_SendIPPacket(int if_index, uint8_t *buffer, size_t length,
   if (!pcap_out_handles[if_index]) {
     return HAL_ERR_IFACE_NOT_EXIST;
   }
-  uint8_t *eth_buffer = (uint8_t *)malloc(length + IP_OFFSET);
+  uint8_t *eth_buffer = tx_buffer[if_index];
   memcpy(eth_buffer, dst_mac, sizeof(macaddr_t));
   memcpy(&eth_buffer[6], interface_mac[if_index], sizeof(macaddr_t));
   // IPv4
@@ -346,14 +360,12 @@ int HAL_SendIPPacket(int if_index, uint8_t *buffer, size_t length,
   memcpy(&eth_buffer[IP_OFFSET], buffer, length);
   if (pcap_inject(pcap_out_handles[if_index], eth_buffer, length + IP_OFFSET) >=
       0) {
-    free(eth_buffer);
     return 0;
   } else {
     if (debugEnabled) {
       fprintf(stderr, "HAL_SendIPPacket: pcap_inject failed with %s\n",
               pcap_geterr(pcap_out_handles[if_index]));
     }
-    free(eth_buffer);
     return HAL_ERR_UNKNOWN;
   }
 }

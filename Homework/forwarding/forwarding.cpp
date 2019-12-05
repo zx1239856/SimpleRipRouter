@@ -1,7 +1,7 @@
-#include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include "router.h"
 
 /**
  * @brief 进行转发时所需的 IP 头的更新：

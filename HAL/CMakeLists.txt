@@ -16,6 +16,7 @@ add_library(router_hal ${SOURCES} ${HEADERS})
 target_include_directories(router_hal PUBLIC include)
 target_link_libraries(router_hal ${LIBRARIES})
 
+set(CMAKE_BUILD_TYPE release)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 

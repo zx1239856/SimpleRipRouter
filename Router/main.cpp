@@ -1,11 +1,11 @@
-#include "router_hal.h"
-#include "router.h"
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include "router_hal.h"
+#include "router.h"
 
 extern void update(bool insert, RoutingTableEntry entry);
 extern bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
@@ -148,6 +148,24 @@ int main(int argc, char *argv[])
                  src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
           handleRipPacket(&rip, src_addr);
         }
+      } else if(dst_is_me && packet[9] == 0x01 && packet[20] == 0x08) {
+        // ICMP Ping request
+        packet[20] = 0x00; // ICMP ping reply
+        memset(packet + 22, 0, sizeof(uint16_t));
+        uint16_t checksum = getChecksum(packet + 20, res - 20);
+        memcpy(packet + 22, &checksum, sizeof(uint16_t));
+        // ICMP checksum
+        memcpy(packet + 12, &dst_addr, sizeof(uint32_t));
+        memcpy(packet + 16, &src_addr, sizeof(uint32_t));
+        // IP Header
+        memset(packet + 4, 0, sizeof(uint32_t));
+        packet[8] = 0x40;
+        memset(packet + 10, 0, sizeof(uint16_t));
+        uint16_t headerCheckSum = getChecksum(packet, 20);
+        memcpy(packet + 10, &headerCheckSum, sizeof(uint16_t));
+        HAL_SendIPPacket(if_index, packet, res, src_mac);
+        printf("[Info] Reply to ICMP ping from %d.%d.%d.%d\n",
+          src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
       }
     }
     else

@@ -1,8 +1,8 @@
-#include "router.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <unordered_map>
+#include "router.h"
 
 #define EXTRACT_ADDR(x) (x >> 24) & 0xff, (x >> 16) & 0xff, (x >> 8) & 0xff, x & 0xff
 /*
