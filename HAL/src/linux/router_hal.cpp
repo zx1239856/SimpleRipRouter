@@ -27,8 +27,8 @@ int debugEnabled = 0;
 in_addr_t interface_addrs[N_IFACE_ON_BOARD] = {0};
 macaddr_t interface_mac[N_IFACE_ON_BOARD] = {0};
 
-pcap_t *pcap_in_handles[N_IFACE_ON_BOARD];
-pcap_t *pcap_out_handles[N_IFACE_ON_BOARD];
+pcap_t *pcap_in_handles[N_IFACE_ON_BOARD] = {nullptr};
+pcap_t *pcap_out_handles[N_IFACE_ON_BOARD] = {nullptr};
 
 uint8_t tx_buffer[N_IFACE_ON_BOARD][BUFSIZ];
 
@@ -76,18 +76,17 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
     }
   }
   freeifaddrs(ifaddr);
- 
+
   // init pcap handles
   char error_buffer[PCAP_ERRBUF_SIZE];
   for (int i = 0; i < N_IFACE_ON_BOARD; i++) {
-    auto in_handle = pcap_create(interfaces[i], error_buffer);
+    pcap_t* in_handle = pcap_create(interfaces[i], error_buffer);
     pcap_set_immediate_mode(in_handle, 1);
     pcap_set_promisc(in_handle, 1);
-    pcap_set_buffer_size(in_handle, BUFSIZ);
+    pcap_set_snaplen(in_handle, BUFSIZ);
     pcap_set_timeout(in_handle, 1);
-    pcap_setdirection(in_handle, PCAP_D_IN);
-    pcap_setnonblock(in_handle, 1, error_buffer);
     if (pcap_activate(in_handle) >= 0) {
+      pcap_setnonblock(in_handle, 1, error_buffer);
       pcap_in_handles[i] = in_handle;
       if (debugEnabled) {
         fprintf(stderr, "HAL_Init: pcap capture enabled for %s\n",
@@ -101,10 +100,10 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
                 interfaces[i]);
       }
     }
-    auto out_handle = pcap_create(interfaces[i], error_buffer);
+    pcap_t* out_handle = pcap_create(interfaces[i], error_buffer);
     pcap_set_immediate_mode(out_handle, 1);
     pcap_set_promisc(out_handle, 1);
-    pcap_set_buffer_size(out_handle, BUFSIZ);
+    pcap_set_snaplen(out_handle, BUFSIZ);
     pcap_set_timeout(out_handle, 0);
     pcap_setnonblock(out_handle, 1, error_buffer);
     if(pcap_activate(out_handle) >= 0) {
