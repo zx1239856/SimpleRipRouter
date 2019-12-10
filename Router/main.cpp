@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
             memcpy(icmp_buffer, new_buffer, sizeof(uint8_t) * 28);
             uint8_t headerLen = (ip_packet[0] & 0xf) << 2;
             res = std::min(headerLen + 8, res);
-            memcpy(icmp_buffer + 28, output, sizeof(uint8_t) * res);
+            memcpy(icmp_buffer + 28, ip_packet, sizeof(uint8_t) * res);
             uint16_t new_len = 28 + res;
             uint16_t new_len_ = htons(new_len);
             memcpy(icmp_buffer + 2, &new_len_, sizeof(uint16_t));
@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
         memcpy(icmp_buffer, new_buffer, sizeof(uint8_t) * 28);
         uint8_t headerLen = (ip_packet[0] & 0xf) << 2;
         res = std::min(headerLen + 8, res);
-        memcpy(icmp_buffer + 28, output, sizeof(uint8_t) * res);
+        memcpy(icmp_buffer + 28, ip_packet, sizeof(uint8_t) * res);
         uint16_t new_len = 28 + res;
         uint16_t new_len_ = htons(new_len);
         memcpy(icmp_buffer + 2, &new_len_, sizeof(uint16_t));

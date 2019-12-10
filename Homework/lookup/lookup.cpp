@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <unordered_map>
 #include "router.h"
@@ -58,7 +59,7 @@ void update(bool isInsert, RoutingTableEntry entry)
 bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index)
 {
   addr = ntohl(addr);
-  for (uint32_t i = 32; i > 0; --i)
+  for (uint32_t i = 32; i <= 32; --i)
   {
     uint32_t _addr = addr & (0xffffffff << (32 - i));
     auto it = table_entries.find(_addr);
@@ -88,7 +89,7 @@ RoutingTableEntry *queryExact(uint32_t addr, uint32_t prefix_len)
 RoutingTableEntry *queryLongest(uint32_t addr, uint32_t prefix_len)
 {
   addr = ntohl(addr);
-  for (uint32_t i = prefix_len; i > 0; --i)
+  for (uint32_t i = prefix_len; i <= 32; --i)
   {
     uint32_t _addr = addr & (0xffffffff << (32 - i));
     auto it = table_entries.find(_addr);
@@ -149,24 +150,28 @@ void addRipRoute(uint32_t addr, uint32_t prefix_len, uint32_t next_hop, uint32_t
 
 void printRoutingTable()
 {
+  static char buf1[30];
+  static char buf2[30];
   printf("==============================Routing Table==============================\n");
   for (const auto &entry : table_entries)
   {
+    sprintf(buf1, "%d.%d.%d.%d/%d", EXTRACT_ADDR(entry.second.addr), entry.second.len);
+    if (entry.second.addr == 0 && entry.second.len == 0)
+      strcat(buf1, "*");
     if (entry.second.nexthop)
     {
-      printf("%d.%d.%d.%d/%d\tvia %d.%d.%d.%d\t\tdev eth%d\tmetric %d\n",
-             EXTRACT_ADDR(entry.second.addr), entry.second.len, EXTRACT_ADDR(entry.second.nexthop), entry.second.if_index + 1, entry.second.metric);
+      sprintf(buf2, "%d.%d.%d.%d", EXTRACT_ADDR(entry.second.nexthop));
+      printf("%20s\tvia %s\tdev eth%d\tmetric %d\n",
+             buf1, buf2, entry.second.if_index + 1, entry.second.metric);
     }
     else
     {
-       printf("%d.%d.%d.%d/%d\t\tvia direct\t\tdev eth%d\tmetric %d\n",
-             EXTRACT_ADDR(entry.second.addr), entry.second.len, entry.second.if_index + 1, entry.second.metric);
+       printf("%20s\tvia direct\tdev eth%d\tmetric %d\n",
+             buf1, entry.second.if_index + 1, entry.second.metric);
     }
   }
   printf("=========================================================================\n");
 }
-
-#undef EXTRACT_ADDR
 
 void handleRipPacket(const RipPacket *rip, in_addr_t src)
 {
@@ -178,17 +183,17 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
     if (entry.nexthop == 0)
       entry.nexthop = src; // means self
     uint32_t prefix_len = MASK_TO_PREFIX_LEN(entry.mask);
-    uint32_t addr = entry.addr;
     uint32_t metric = ntohl(entry.metric) + 1;
-    uint32_t next_hop = entry.nexthop;
-    auto old_entry = queryExact(addr, prefix_len);
+    uint32_t next_hop = ntohl(entry.nexthop);
+    auto old_entry = queryExact(entry.addr, prefix_len);
     if (old_entry == nullptr)
     {
       if (metric < RIP_INFINITY)
       {
         // new item
-        addRipRoute(addr, prefix_len, next_hop, metric);
-        printf("[Info] Added a new route from RIP response.\n");
+        addRipRoute(entry.addr, prefix_len, entry.nexthop, metric);
+        printf("[Info] Added a new route %d.%d.%d.%d/%d from RIP response.\n",
+			EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
         printRoutingTable();
       }
     }
@@ -201,14 +206,16 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
           if (old_entry->metric != metric)
           {
             old_entry->metric = metric;
-            printf("[Info] Updated route metric from RIP response.\n");
+            printf("[Info] Updated route %d.%d.%d.%d/%d metric from RIP response.\n",
+			    EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
             printRoutingTable();
           }
         }
         else
         {
-          deleteRoute(addr, prefix_len);
-          printf("[Info] Deleted a route from RIP response.\n");
+          printf("[Info] Deleted a route %d.%d.%d.%d/%d from RIP response.\n",
+			  EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
+	  deleteRoute(entry.addr, prefix_len);
           printRoutingTable();
         }
       }
@@ -229,3 +236,4 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
     }
   }
 }
+
