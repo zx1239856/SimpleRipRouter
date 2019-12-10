@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     if (time > last_time + 15 * 1000)
     {
       last_time = time;
-      printf("[Info] Timer: send RIP response to multicast\n");
+      fprintf(stderr, "[Debug] Timer: send RIP response to multicast\n");
       for (uint32_t i = 0; i < N_IFACE_ON_BOARD; ++i)
       {
         macaddr_t dst_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09};
@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 
     if (!validateIPChecksum(ip_packet, res))
     {
-      printf("Invalid IP Checksum, ignore\n");
+      fprintf(stderr, "[Debug] Invalid IP Checksum, ignore\n");
       continue;
     }
     in_addr_t src_addr, dst_addr;
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
         if (rip.command == RIP_REQUEST)
         {
           // request
-          printf("[Info] Respond to RIP request from %d.%d.%d.%d\n",
+          fprintf(stderr, "[Debug] Respond to RIP request from %d.%d.%d.%d\n",
                  src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
           uint32_t len = constructRipResponse(output, addrs[if_index], src_addr, if_index);
           HAL_SendIPPacket(if_index, output, len, src_mac);
@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
         else
         {
           // response
-          printf("[Info] Obtained RIP response packet from %d.%d.%d.%d\n",
+          fprintf(stderr, "[Debug] Obtained RIP response packet from %d.%d.%d.%d\n",
                  src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
           handleRipPacket(&rip, src_addr);
         }
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
         uint16_t headerCheckSum = getChecksum(ip_packet, 20);
         memcpy(ip_packet + 10, &headerCheckSum, sizeof(uint16_t));
         HAL_SendEthernetFrame(if_index, packet, res, src_mac);
-        printf("[Info] Reply to ICMP ping from %d.%d.%d.%d\n",
+        fprintf(stderr, "[Debug] Reply to ICMP ping from %d.%d.%d.%d\n",
           src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
       }
     }
