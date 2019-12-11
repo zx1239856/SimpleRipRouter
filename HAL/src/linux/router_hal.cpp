@@ -16,12 +16,6 @@
 #include <time.h>
 #include <utility>
 
-#ifndef HAL_PLATFORM_TESTING
-#include "platform/standard.h"
-#else
-#include "platform/testing.h"
-#endif
-
 bool inited = false;
 int debugEnabled = 0;
 in_addr_t interface_addrs[N_IFACE_ON_BOARD] = {0};
@@ -36,7 +30,7 @@ std::map<std::pair<in_addr_t, int>, macaddr_t> arp_table;
 std::map<std::pair<in_addr_t, int>, uint64_t> arp_timer;
 
 extern "C" {
-int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
+int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD], const char *interfaces[N_IFACE_ON_BOARD]) {
   if (inited) {
     return 0;
   }
@@ -127,7 +121,7 @@ int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
   return 0;
 }
 
-void HAL_Finalize(in_addr_t if_addrs[N_IFACE_ON_BOARD]) {
+void HAL_Finalize(in_addr_t if_addrs[N_IFACE_ON_BOARD], const char *interfaces[N_IFACE_ON_BOARD]) {
   for (int i = 0; i < N_IFACE_ON_BOARD; i++) {
     if (pcap_out_handles[i]) {
       HAL_LeaveIGMPGroup(i, if_addrs[i]);

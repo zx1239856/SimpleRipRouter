@@ -44,9 +44,15 @@ extern "C" {
  *
  * @return int 0 表示成功，非 0 表示失败
  */
+#ifdef ROUTER_BACKEND_LINUX
+int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD], const char *interfaces[N_IFACE_ON_BOARD]);
+
+void HAL_Finalize(in_addr_t if_addrs[N_IFACE_ON_BOARD], const char *interfaces[N_IFACE_ON_BOARD]);
+#else
 int HAL_Init(int debug, in_addr_t if_addrs[N_IFACE_ON_BOARD]);
 
 void HAL_Finalize(in_addr_t if_addrs[N_IFACE_ON_BOARD]);
+#endif
 
 /**
  * @brief 获取从启动到当前时刻的毫秒数

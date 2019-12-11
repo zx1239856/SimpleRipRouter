@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <yaml-cpp/yaml.h>
 #include "router_hal.h"
 #include "router.h"
 
@@ -20,21 +21,100 @@ uint8_t icmp_buffer[2048];
 // 你可以按需进行修改，注意端序
 // 192.168.2.2 for test
 // 192.168.4.1 for test
+std::vector<std::string> if_names(N_IFACE_ON_BOARD);
+const char *if_name_arr[N_IFACE_ON_BOARD];
 in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0102000a, 0x0103000a};
+uint32_t prefix_len[N_IFACE_ON_BOARD] = {24, 24, 24, 24};
 constexpr in_addr_t rip_group_addr = {0x090000e0}; // 224.0.0.9
 
 void onInterrupt(int _)
 {
   printf("SIGINT received, exiting...\n");
-  HAL_Finalize(addrs);
+  HAL_Finalize(addrs, if_name_arr);
   exit(0);
+}
+
+bool parseIPv4Addr(const std::string &in, in_addr_t &addr, uint32_t &prefix) {
+  size_t pos1 = in.find_first_of('.');
+  if(pos1 == std::string::npos)
+    return false;
+  size_t pos2 = in.find_first_of('.', pos1 + 1);
+  if(pos2 == std::string::npos)
+    return false;
+  size_t pos3 = in.find_first_of('.', pos2 + 1);
+  if(pos3 == std::string::npos)
+    return false;
+  size_t pos4 = in.find_first_of('/', pos3 + 1);
+  if(pos4 == std::string::npos)
+    return false;
+  auto seg0 = in.substr(0, pos1);
+  auto seg1 = in.substr(pos1 + 1, pos2 - pos1 - 1);
+  auto seg2 = in.substr(pos2 + 1, pos3 - pos2 - 1);
+  auto seg3 = in.substr(pos3 + 1, pos4 - pos3 - 1);
+  auto seg4 = in.substr(pos4 + 1);
+  try {
+    auto v0 = std::stoi(seg0);
+    auto v1 = std::stoi(seg1);
+    auto v2 = std::stoi(seg2);
+    auto v3 = std::stoi(seg3);
+    auto v4 = std::stoi(seg4);
+    if(v0 < 0 || v0 > 255 || v1 < 0 || v1 > 255 || v2 < 0 || v2 > 255 || v3 < 0 || v3 > 255 || v4 < 0 || v4 > 32)
+      return false;
+    addr = ((v3 & 0xff) << 24) | ((v2 & 0xff) << 16) | ((v1 & 0xff) << 8) | ((v0 & 0xff));
+    prefix = v4;
+  } catch (std::invalid_argument) {
+    return false;
+  }
+  return true;
 }
 
 int main(int argc, char *argv[])
 {
+  if(argc != 2) {
+    printf("SimpleRipRouter by zx1239856.\nUsage: %s [config-file]\n", argv[0]);
+    exit(0);
+  }
+
+  try {
+    YAML::Node config = YAML::LoadFile(argv[1]);
+    if(config["interfaces"] && config["interfaces"].Type() == YAML::NodeType::Sequence) {
+      auto node = config["interfaces"];
+      if(node.size() == N_IFACE_ON_BOARD) {
+        for(size_t i = 0; i < N_IFACE_ON_BOARD; ++i) {
+          if(node[i]["name"] && node[i]["ip"]) {
+            if_names[i] = node[i]["name"].as<std::string>();
+            if_name_arr[i] = if_names[i].c_str();
+            auto ip = node[i]["ip"].as<std::string>();
+            if(!parseIPv4Addr(ip, addrs[i], prefix_len[i])) {
+              printf("Invalid ip address config: %s for interface %lu\n", ip.c_str(), i);
+              exit(EXIT_FAILURE);
+            }
+          } else {
+            printf("Invalid interface config detected. Should be {ip: ..., name: ....}\n");
+            exit(EXIT_FAILURE);
+          }
+        }
+      } else {
+        printf("Only %d interfaces are supported, but %lu were provided.\n", N_IFACE_ON_BOARD, node.size());
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      printf("Invalid yaml config file: %s.\nExpected `interfaces` key in file.\n", argv[1]);
+      exit(EXIT_FAILURE);
+    }
+  }
+  catch(YAML::ParserException) {
+    printf("Invalid yaml config file: %s.\n", argv[1]);
+    exit(EXIT_FAILURE);
+  }
+  catch(YAML::BadFile) {
+    printf("Error opening config file: %s.\n", argv[1]);
+    exit(EXIT_FAILURE);
+  }
+
   signal(SIGINT, onInterrupt);
 
-  int res = HAL_Init(1, addrs);
+  int res = HAL_Init(1, addrs, if_name_arr);
   if (res < 0)
   {
     return res;
@@ -50,7 +130,7 @@ int main(int argc, char *argv[])
   {
     RoutingTableEntry entry = {
         .addr = addrs[i],
-        .len = 24,     // small endian
+        .len = prefix_len[i],     // small endian
         .if_index = i, // small endian
         .nexthop = 0,
 	.metric = 1};

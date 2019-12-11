@@ -20,5 +20,4 @@ add_definitions("-DROUTER_BACKEND_${BACKEND}")
 set(CMAKE_BUILD_TYPE release)
 
 add_subdirectory(HAL)
-add_subdirectory(Example)
 add_subdirectory(Router)
