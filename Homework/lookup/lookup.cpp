@@ -127,10 +127,6 @@ inline void updateRipRoute(RoutingTableEntry *entry, uint32_t new_metric, uint32
     printf("[Warning] Failed to find entry for next_hop: %d.%d.%d.%d\n", EXTRACT_ADDR(ntohl(new_next_hop)));
     return;
   }
-  else if (entry2->nexthop == 0)
-  {
-    return;
-  }
   entry->nexthop = ntohl(new_next_hop);
   entry->metric = new_metric;
   entry->if_index = entry2->if_index;
