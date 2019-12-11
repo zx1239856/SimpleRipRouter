@@ -157,12 +157,12 @@ void printRoutingTable()
     if (entry.second.nexthop)
     {
       sprintf(buf2, "%d.%d.%d.%d", EXTRACT_ADDR(entry.second.nexthop));
-      printf("%20s\tvia %s\tdev eth%d\tmetric %d\n",
+      printf("%20s\tvia %15s\tdev eth%d\tmetric %d\n",
              buf1, buf2, entry.second.if_index + 1, entry.second.metric);
     }
     else
     {
-       printf("%20s\tvia direct\tdev eth%d\tmetric %d\n",
+       printf("%20s\tvia          direct\tdev eth%d\tmetric %d\n",
              buf1, entry.second.if_index + 1, entry.second.metric);
     }
   }
