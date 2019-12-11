@@ -35,7 +35,7 @@ std::unordered_map<uint32_t, RoutingTableEntry> table_entries;
  */
 void update(bool isInsert, RoutingTableEntry entry)
 {
-  uint32_t addr = ntohl(entry.addr) & (0xffffffff << (32 - entry.len));
+  uint32_t addr = ntohl(entry.addr) & PREFIX_LEN_TO_MASK(entry.len);
   if (isInsert)
   {
     table_entries[addr] = {addr, entry.len, entry.if_index, ntohl(entry.nexthop), entry.metric};
@@ -61,7 +61,7 @@ bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index)
   addr = ntohl(addr);
   for (uint32_t i = 32; i <= 32; --i)
   {
-    uint32_t _addr = addr & (0xffffffff << (32 - i));
+    uint32_t _addr = addr & PREFIX_LEN_TO_MASK(i);
     auto it = table_entries.find(_addr);
     if (it != table_entries.end() && it->second.len == i)
     {
@@ -77,7 +77,7 @@ bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index)
 
 RoutingTableEntry *queryExact(uint32_t addr, uint32_t prefix_len)
 {
-  addr = ntohl(addr) & (0xffffffff << (32 - prefix_len));
+  addr = ntohl(addr) & PREFIX_LEN_TO_MASK(prefix_len);
   auto it = table_entries.find(addr);
   if (it != table_entries.end())
   {
@@ -91,7 +91,7 @@ RoutingTableEntry *queryLongest(uint32_t addr, uint32_t prefix_len)
   addr = ntohl(addr);
   for (uint32_t i = prefix_len; i <= 32; --i)
   {
-    uint32_t _addr = addr & (0xffffffff << (32 - i));
+    uint32_t _addr = addr & PREFIX_LEN_TO_MASK(i);
     auto it = table_entries.find(_addr);
     if (it != table_entries.end() && it->second.len == i)
     {
@@ -111,7 +111,7 @@ bool isDirectConnect(uint32_t addr)
 
 void deleteRoute(uint32_t addr, uint32_t prefix_len)
 {
-  addr = ntohl(addr) & (0xffffffff << (32 - prefix_len));
+  addr = ntohl(addr) & PREFIX_LEN_TO_MASK(prefix_len);
   auto it = table_entries.find(addr);
   if (it != table_entries.end())
   {
@@ -138,7 +138,7 @@ inline void updateRipRoute(RoutingTableEntry *entry, uint32_t new_metric, uint32
 
 void addRipRoute(uint32_t addr, uint32_t prefix_len, uint32_t next_hop, uint32_t metric)
 {
-  uint32_t addr_ = ntohl(addr) & (0xffffffff << (32 - prefix_len));
+  uint32_t addr_ = ntohl(addr) & PREFIX_LEN_TO_MASK(prefix_len);
   RoutingTableEntry *entry = queryLongest(next_hop, 32);
   if (entry == nullptr)
   {

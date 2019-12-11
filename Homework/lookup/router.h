@@ -16,8 +16,8 @@ typedef struct {
     uint32_t metric;
 } RoutingTableEntry;
 
-#define MASK_TO_PREFIX_LEN(bin) (32 - __builtin_clz((bin)))
-#define PREFIX_LEN_TO_MASK(len) (0xffffffff << (32 - len))
+#define MASK_TO_PREFIX_LEN(bin) (32 - (bin == 0 ? 32 : __builtin_clz((bin))))
+#define PREFIX_LEN_TO_MASK(len) (len == 0 ? 0 : 0xffffffff << (32 - len))
 
 /**
  * Checksum Utils
