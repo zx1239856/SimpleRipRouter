@@ -40,6 +40,8 @@ uint32_t constructRipRequest(uint8_t *buffer, in_addr_t src_ip);
 uint32_t constructRipResponse(uint8_t *buffer, in_addr_t src_ip, in_addr_t dst_ip, uint32_t out_if);
 void handleRipPacket(const RipPacket *rip, in_addr_t src);
 void fillRipPacket(RipPacket *rip, uint32_t out_if_index);
+
+void sendRipResponse(uint8_t *buffer, in_addr_t src_ip, in_addr_t dst_ip, uint32_t out_if, macaddr_t out_mac);
 /**
  * Routing tables
  */

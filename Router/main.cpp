@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
         .len = prefix_len[i],     // small endian
         .if_index = i, // small endian
         .nexthop = 0,
-	.metric = 1};
+        .metric = 1};
     update(true, entry);
 
     macaddr_t dst_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09};
@@ -155,8 +155,9 @@ int main(int argc, char *argv[])
       for (uint32_t i = 0; i < N_IFACE_ON_BOARD; ++i)
       {
         macaddr_t dst_mac = {0x01, 0x00, 0x5e, 0x00, 0x00, 0x09};
-        uint32_t len = constructRipResponse(output, addrs[i], rip_group_addr, i);
-        HAL_SendIPPacket(i, output, len, dst_mac);
+        // uint32_t len = constructRipResponse(output, addrs[i], rip_group_addr, i);
+        // HAL_SendIPPacket(i, output, len, dst_mac);
+        sendRipResponse(output, addrs[i], rip_group_addr, i, dst_mac);
       }
       printRoutingTable();
     }
@@ -220,8 +221,9 @@ int main(int argc, char *argv[])
           // request
           fprintf(stderr, "[Debug] Respond to RIP request from %d.%d.%d.%d\n",
                  src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
-          uint32_t len = constructRipResponse(output, addrs[if_index], src_addr, if_index);
-          HAL_SendIPPacket(if_index, output, len, src_mac);
+          // uint32_t len = constructRipResponse(output, addrs[if_index], src_addr, if_index);
+          // HAL_SendIPPacket(if_index, output, len, src_mac);
+          sendRipResponse(output, addrs[if_index], src_addr, if_index, src_mac);
         }
         else
         {

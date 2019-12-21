@@ -1,4 +1,5 @@
 #include <unordered_map>
+#include <string.h>
 #include "rip.h"
 #include "router.h"
 /*
@@ -163,4 +164,53 @@ void fillRipPacket(RipPacket *rip, uint32_t out_if_index) {
   }
   rip->command = RIP_RESPONSE;
   rip->numEntries = idx;
+}
+
+
+void sendRipResponse(uint8_t *buffer, in_addr_t src_ip, in_addr_t dst_ip, uint32_t out_if, macaddr_t out_mac) {
+  RipPacket rip;
+  rip.command = RIP_RESPONSE;
+
+  int idx = 0;
+  
+  for(auto it = table_entries.begin(); it != table_entries.end(); ++it) {
+    const auto & entry = it->second;
+    bool need_poison = out_if == entry.if_index;
+    uint32_t mask = PREFIX_LEN_TO_MASK(entry.len);
+    uint32_t next_hop = htonl(entry.nexthop);
+    rip.entries[idx].addr = htonl(entry.addr & mask);
+    rip.entries[idx].mask = htonl(mask);
+    rip.entries[idx].metric = htonl(need_poison ? 16 : entry.metric);
+    rip.entries[idx].nexthop = 0; // 0 means curr router
+
+    if(++idx == RIP_MAX_ENTRY || std::next(it) == table_entries.end()) {
+      rip.numEntries = idx;
+      assemble(&rip, buffer + 28);
+      // send packet
+      uint8_t header[28] = {
+        0x45, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x11, // IP Header
+        0x00, 0x00,             // Header checksum
+        0x00, 0x00, 0x00, 0x00, // Source Addr
+        0x00, 0x00, 0x00, 0x00, // Dst Addr
+        0x02, 0x08, 0x02, 0x08, // src, dst port 520
+        0x00, 0x00, // length
+        0x00, 0x00 // udp checksum
+      };
+      memcpy(buffer, header, 28 * sizeof(uint8_t));
+      memcpy(buffer + 12, &src_ip, sizeof(in_addr_t));
+      memcpy(buffer + 16, &dst_ip, sizeof(in_addr_t));
+      uint16_t udpLen = 8 + 4 + 20 * rip.numEntries;
+      uint16_t ipLen = 20 + udpLen;
+      uint16_t udpLen_ = htons(udpLen);
+      uint16_t ipLen_ = htons(ipLen);
+      memcpy(buffer + 2, &ipLen_, sizeof(uint16_t));
+      memcpy(buffer + 24, &udpLen_, sizeof(uint16_t));
+      uint16_t headerCheckSum = getChecksum(buffer, 20);
+      memcpy(buffer + 10, &headerCheckSum, sizeof(uint16_t));
+
+      HAL_SendIPPacket(out_if, buffer, ipLen, out_mac);
+
+      idx = 0;
+    }
+  }  
 }

@@ -1,6 +1,6 @@
 interfaces:
   - ip: 192.168.3.2/24
-    name: eth1
+    name: enx9cebe8c35d26
   - ip: 192.168.4.1/24
     name: eth2
   - ip: 10.0.2.1/24
