@@ -141,8 +141,8 @@ int main(int argc, char *argv[])
     HAL_SendIPPacket(i, output, len, dst_mac); // send RIP request on boot
   }
 
-  printf("[Info] Initial routing table:\n");
-  printRoutingTable();
+  // printf("[Info] Initial routing table:\n");
+  // printRoutingTable();
 
   uint64_t last_time = 0;
   while (1)
@@ -219,8 +219,8 @@ int main(int argc, char *argv[])
         if (rip.command == RIP_REQUEST)
         {
           // request
-          fprintf(stderr, "[Debug] Respond to RIP request from %d.%d.%d.%d\n",
-                 src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
+          // fprintf(stderr, "[Debug] Respond to RIP request from %d.%d.%d.%d\n",
+          //        src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
           // uint32_t len = constructRipResponse(output, addrs[if_index], src_addr, if_index);
           // HAL_SendIPPacket(if_index, output, len, src_mac);
           sendRipResponse(output, addrs[if_index], src_addr, if_index, src_mac);
@@ -228,8 +228,8 @@ int main(int argc, char *argv[])
         else
         {
           // response
-          fprintf(stderr, "[Debug] Obtained RIP response packet from %d.%d.%d.%d\n",
-                 src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
+          // fprintf(stderr, "[Debug] Obtained RIP response packet from %d.%d.%d.%d\n",
+          //        src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
           handleRipPacket(&rip, src_addr);
         }
       } else if(dst_is_me && ip_packet[9] == 0x01 && ip_packet[20] == 0x08) {
@@ -248,8 +248,8 @@ int main(int argc, char *argv[])
         uint16_t headerCheckSum = getChecksum(ip_packet, 20);
         memcpy(ip_packet + 10, &headerCheckSum, sizeof(uint16_t));
         HAL_SendEthernetFrame(if_index, packet, res, src_mac);
-        fprintf(stderr, "[Debug] Reply to ICMP ping from %d.%d.%d.%d\n",
-          src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
+        // fprintf(stderr, "[Debug] Reply to ICMP ping from %d.%d.%d.%d\n",
+        //   src_addr & 0xff, (src_addr >> 8) & 0xff, (src_addr >> 16) & 0xff, (src_addr >> 24) & 0xff);
       }
     }
     else

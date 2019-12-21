@@ -188,9 +188,9 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
       {
         // new item
         addRipRoute(entry.addr, prefix_len, entry.nexthop, metric);
-        printf("[Info] Added a new route %d.%d.%d.%d/%d from RIP response.\n",
-			EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
-        printRoutingTable();
+        //printf("[Info] Added a new route %d.%d.%d.%d/%d from RIP response.\n",
+			//EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
+        //printRoutingTable();
       }
     }
     else
@@ -204,7 +204,7 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
             old_entry->metric = metric;
             printf("[Info] Updated route %d.%d.%d.%d/%d metric from RIP response.\n",
 			    EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
-            printRoutingTable();
+            //printRoutingTable();
           }
         }
         else
@@ -212,7 +212,7 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
           printf("[Info] Deleted a route %d.%d.%d.%d/%d from RIP response.\n",
 			  EXTRACT_ADDR(htonl(entry.addr)), prefix_len);
 	  deleteRoute(entry.addr, prefix_len);
-          printRoutingTable();
+          //printRoutingTable();
         }
       }
       else
@@ -226,7 +226,7 @@ void handleRipPacket(const RipPacket *rip, in_addr_t src)
         {
           printf("[Info] Updated to another route with smaller metric.\n");
           updateRipRoute(old_entry, metric, entry.nexthop);
-          printRoutingTable();
+          //printRoutingTable();
         }
       }
     }
